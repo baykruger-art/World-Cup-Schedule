@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>World Cup 2026</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=Barlow:wght@400;500&display=swap" rel="stylesheet">
-  <img src="artworks-0NXyzFtyV9ktaOFi-MjwzgA-t1080x1080.jpg" style ="width:100%; display:block; margin-top:10px;"
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -148,19 +147,8 @@ body {
   line-height: 1.6;
 }
 .no-games strong { display: block; color: #6a8aaa; font-size: 15px; margin-bottom: 4px; }
-.loading {
-  text-align: center;
-  padding: 24px;
-  color: #3a5a7a;
-  font-size: 13px;
-}
-.error {
-  text-align: center;
-  padding: 16px;
-  color: #aa4040;
-  font-size: 12px;
-  line-height: 1.5;
-}
+.loading { text-align: center; padding: 24px; color: #3a5a7a; font-size: 13px; }
+.error { text-align: center; padding: 16px; color: #aa4040; font-size: 12px; line-height: 1.5; }
 .footer {
   background: #0a1628;
   border-top: 1px solid #1a2e4a;
@@ -180,28 +168,40 @@ body {
   transition: color 0.15s;
 }
 .refresh-btn:hover { color: #e8c84a; }
+.bottom-image {
+  width: 400px;
+  margin-top: 12px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #1e3a5f;
+}
+.bottom-image img { width: 100%; display: block; }
 </style>
 </head>
 <body>
-<div class="widget">
-  <div class="header">
-    <div class="trophy-icon">🏆</div>
-    <div class="header-text">
-      <h1>FIFA World Cup 2026</h1>
-      <p>All times AEDT (Sydney) &nbsp;·&nbsp; Free on SBS</p>
+<div>
+  <div class="widget">
+    <div class="header">
+      <div class="trophy-icon">🏆</div>
+      <div class="header-text">
+        <h1>FIFA World Cup 2026</h1>
+        <p>All times AEST (Sydney) &nbsp;·&nbsp; Free on SBS</p>
+      </div>
+      <div class="sbs-badge">SBS</div>
     </div>
-    <div class="sbs-badge">SBS</div>
+    <div class="tabs" id="tabs"></div>
+    <div id="content"><div class="loading">Loading fixtures…</div></div>
+    <div class="footer">
+      <div class="footer-left" id="footer-date">—</div>
+      <button class="refresh-btn" onclick="init()">↻ Refresh</button>
+    </div>
   </div>
-  <div class="tabs" id="tabs"></div>
-  <div id="content"><div class="loading">Loading fixtures…</div></div>
-  <div class="footer">
-    <div class="footer-left" id="footer-date">—</div>
-    <button class="refresh-btn" onclick="init()">↻ Refresh</button>
+  <div class="bottom-image">
+    <img src="artworks-0NXyzFtyV9ktaOFi-MjwzgA-t1080x1080.jpg" alt="">
   </div>
 </div>
 
 <script>
-/* ── known team name fixes (openfootball uses placeholder names pre-tournament) ── */
 const TEAM_FIX = {
   "UEFA Path A winner": "Bosnia & Herzegovina",
   "UEFA Path B winner": "Scotland",
@@ -211,12 +211,7 @@ const TEAM_FIX = {
   "UEFA Path F winner": "Croatia",
   "CONMEBOL/AFC playoff winner": "Paraguay"
 };
-
-function fixTeam(name) {
-  return TEAM_FIX[name] || name;
-}
-
-/* ── parse "HH:MM UTC±N" into UTC epoch ms for a given ISO date string ── */
+function fixTeam(name) { return TEAM_FIX[name] || name; }
 function parseMatchUTC(dateStr, timeStr) {
   const m = timeStr.match(/(\d{2}):(\d{2})\s+UTC([+-]\d+)/);
   if (!m) return null;
@@ -225,9 +220,6 @@ function parseMatchUTC(dateStr, timeStr) {
   const [y, mo, d] = dateStr.split('-').map(Number);
   return Date.UTC(y, mo - 1, d, parseInt(hh) - offsetH, parseInt(mm));
 }
-
-/* ── format UTC ms into AEDT (UTC+10, no DST during winter = AEST) ──
-   Sydney is UTC+10 in June (AEST, no daylight saving) */
 function toAEDT(utcMs) {
   const aestMs = utcMs + 10 * 3600 * 1000;
   const d = new Date(aestMs);
@@ -242,124 +234,77 @@ function toAEDT(utcMs) {
   const dayStr = `${days[d.getUTCDay()]} ${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
   return { timeStr, dayStr, utcDate: d.toISOString().slice(0,10) };
 }
-
-/* ── get today's date in AEST ── */
 function todayAEST() {
   const now = new Date();
-  const aestMs = now.getTime() + 10 * 3600 * 1000;
-  return new Date(aestMs).toISOString().slice(0, 10);
+  return new Date(now.getTime() + 10 * 3600 * 1000).toISOString().slice(0, 10);
 }
-
 function addDays(isoDate, n) {
   const d = new Date(isoDate + 'T00:00:00Z');
   d.setUTCDate(d.getUTCDate() + n);
   return d.toISOString().slice(0, 10);
 }
-
 function fmtLabel(isoDate) {
   const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const d = new Date(isoDate + 'T00:00:00Z');
   return `${days[d.getUTCDay()]} ${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
 }
-
 let activeTab = 0;
-
 function renderTabs(days, matchesByDay) {
-  const tabsEl = document.getElementById('tabs');
-  tabsEl.innerHTML = days.map((d, i) => {
+  document.getElementById('tabs').innerHTML = days.map((d, i) => {
     const cnt = (matchesByDay[d] || []).length;
     return `<button class="tab ${i === activeTab ? 'active' : ''}" onclick="switchTab(${i})">${fmtLabel(d)}<span class="cnt">${cnt}</span></button>`;
   }).join('');
 }
-
 function renderContent(days, matchesByDay) {
-  const contentEl = document.getElementById('content');
-  contentEl.innerHTML = days.map((d, i) => {
+  document.getElementById('content').innerHTML = days.map((d, i) => {
     const matches = matchesByDay[d] || [];
-    let inner = '';
-    if (matches.length === 0) {
-      inner = `<div class="no-games"><strong>No matches today</strong>Check the next tab for upcoming games.</div>`;
-    } else {
-      inner = matches.map(m => {
-        const utcMs = parseMatchUTC(m.date, m.time);
-        const aest = toAEDT(utcMs);
-        const grp = m.group ? m.group.replace('Group ', 'GRP ') : '';
-        const t1 = fixTeam(m.team1);
-        const t2 = fixTeam(m.team2);
-        const venue = m.ground || '';
-        return `
-        <div class="match-card">
-          <div class="time-block">
-            <div class="time-main">${aest.timeStr}</div>
-            <div class="time-day">${aest.dayStr}</div>
-          </div>
-          <div class="sep"></div>
-          <div class="match-info">
-            <div class="teams">${t1} vs ${t2}</div>
-            <div class="venue">📍 ${venue}</div>
-          </div>
-          ${grp ? `<div class="group-tag">${grp}</div>` : ''}
-        </div>`;
-      }).join('');
-    }
+    let inner = matches.length === 0
+      ? `<div class="no-games"><strong>No matches today</strong>Check the next tab for upcoming games.</div>`
+      : matches.map(m => {
+          const aest = toAEDT(parseMatchUTC(m.date, m.time));
+          const grp = m.group ? m.group.replace('Group ', 'GRP ') : '';
+          return `<div class="match-card">
+            <div class="time-block"><div class="time-main">${aest.timeStr}</div><div class="time-day">${aest.dayStr}</div></div>
+            <div class="sep"></div>
+            <div class="match-info"><div class="teams">${fixTeam(m.team1)} vs ${fixTeam(m.team2)}</div><div class="venue">📍 ${m.ground || ''}</div></div>
+            ${grp ? `<div class="group-tag">${grp}</div>` : ''}
+          </div>`;
+        }).join('');
     return `<div id="day${i}" class="day-section ${i === activeTab ? 'visible' : ''}">${inner}</div>`;
   }).join('');
 }
-
 function switchTab(i) {
   activeTab = i;
   document.querySelectorAll('.tab').forEach((t, j) => t.classList.toggle('active', j === i));
   document.querySelectorAll('.day-section').forEach((s, j) => s.classList.toggle('visible', j === i));
-  document.querySelectorAll('.tab .cnt').forEach((c, j) => {
-    c.parentElement.classList.toggle('active', j === i);
-  });
 }
-
 async function init() {
   document.getElementById('content').innerHTML = '<div class="loading">Loading fixtures…</div>';
   document.getElementById('tabs').innerHTML = '';
-
   try {
     const res = await fetch('https://raw.githubusercontent.com/openfootball/worldcup.json/master/2026/worldcup.json');
     if (!res.ok) throw new Error('Fetch failed');
     const data = await res.json();
-
     const today = todayAEST();
     const days = [today, addDays(today, 1), addDays(today, 2)];
-
-    /* group matches by their AEST date (a match at 1am AEST on June 12 belongs to June 12) */
     const matchesByDay = { [days[0]]: [], [days[1]]: [], [days[2]]: [] };
-
     for (const m of data.matches) {
       if (!m.time) continue;
       const utcMs = parseMatchUTC(m.date, m.time);
       if (!utcMs) continue;
       const aestDate = toAEDT(utcMs).utcDate;
-      if (days.includes(aestDate)) {
-        matchesByDay[aestDate].push(m);
-      }
+      if (days.includes(aestDate)) matchesByDay[aestDate].push(m);
     }
-
-    /* sort each day's matches by kick-off */
-    for (const d of days) {
-      matchesByDay[d].sort((a, b) => parseMatchUTC(a.date, a.time) - parseMatchUTC(b.date, b.time));
-    }
-
+    for (const d of days) matchesByDay[d].sort((a, b) => parseMatchUTC(a.date, a.time) - parseMatchUTC(b.date, b.time));
     renderTabs(days, matchesByDay);
     renderContent(days, matchesByDay);
-
-    const now = new Date();
-    document.getElementById('footer-date').textContent =
-      'Updated ' + now.toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true });
-
+    document.getElementById('footer-date').textContent = 'Updated ' + new Date().toLocaleTimeString('en-AU', { hour: 'numeric', minute: '2-digit', hour12: true });
   } catch (e) {
-    document.getElementById('content').innerHTML =
-      `<div class="error">⚠️ Could not load fixtures.<br>Check your internet connection and click Refresh.</div>`;
+    document.getElementById('content').innerHTML = `<div class="error">⚠️ Could not load fixtures.<br>Check your internet connection and click Refresh.</div>`;
     document.getElementById('tabs').innerHTML = '';
   }
 }
-
 init();
 </script>
 </body>
